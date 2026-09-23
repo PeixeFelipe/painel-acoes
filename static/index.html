@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel de Ações</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a78d6'/%3E%3Cpath d='M6 22l7-8 5 5 8-10' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/estilo.css">
+</head>
+<body>
+
+<!-- Carregando -->
+<div id="tela-carregando" class="centro"><p class="sub">Carregando…</p></div>
+
+<!-- Entrada -->
+<div id="tela-login" class="centro" hidden>
+  <form id="form-login" class="painel caixa-login" autocomplete="on">
+    <div class="marca grande"><span class="logo" aria-hidden="true"></span> Painel de Ações</div>
+    <p class="sub">Entre com seu nome de usuário e senha.</p>
+    <label>Usuário
+      <input id="login-usuario" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+    </label>
+    <label>Senha
+      <input id="login-senha" name="password" type="password" autocomplete="current-password" required>
+    </label>
+    <p id="login-erro" class="erro" role="alert" hidden></p>
+    <button class="botao primario" type="submit">Entrar</button>
+    <p class="dica">Não tem acesso? Peça ao administrador para criar seu usuário.</p>
+  </form>
+</div>
+
+<!-- App -->
+<div id="tela-app" class="layout" hidden>
+  <aside class="lateral">
+    <div class="marca"><span class="logo" aria-hidden="true"></span> Painel de Ações</div>
+    <nav id="menu" aria-label="Menu principal">
+      <a href="#/acoes" data-pagina="acoes"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>Ações</a>
+      <a href="#/carteira" data-pagina="carteira"><svg viewBox="0 0 24 24"><path d="M4 7h16v12H4zM8 7V5h8v2"/></svg>Minha carteira</a>
+      <a href="#/conta" data-pagina="conta"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Minha conta</a>
+      <a href="#/admin" data-pagina="admin" id="menu-admin" hidden><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Administração</a>
+    </nav>
+    <div class="rodape-menu">
+      <div class="quem"><strong id="nome-usuario"></strong><span id="tipo-usuario" class="sub"></span></div>
+      <button id="botao-sair" class="botao" type="button">Sair</button>
+    </div>
+  </aside>
+  <main id="conteudo" tabindex="-1"></main>
+</div>
+
+<dialog id="dialogo-senha">
+  <h2>Senha temporária</h2>
+  <p id="dialogo-texto" class="sub"></p>
+  <div class="senha-temp"><code id="dialogo-codigo"></code><button id="dialogo-copiar" class="botao" type="button">Copiar</button></div>
+  <p class="aviso">Anote agora. <strong>Esta senha aparece uma única vez</strong> e não dá para vê-la de novo. Se perder, use "Redefinir senha".</p>
+  <div class="acoes-dialogo"><button id="dialogo-fechar" class="botao primario" type="button">Já anotei</button></div>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="/static/acoes.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

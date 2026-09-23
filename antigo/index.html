@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Petrobras, Itaú e Vale em 2025</title>
+<style>
+  /* Cores definidas uma vez aqui; o modo escuro troca só os valores. */
+  :root {
+    color-scheme: light;
+    --pagina:     #f9f9f7;
+    --superficie: #fcfcfb;
+    --tinta:      #0b0b0b;
+    --tinta-2:    #52514e;
+    --grade:      #e1e0d9;
+    --base:       #c3c2b7;
+    --borda:      rgba(11, 11, 11, 0.10);
+    --alta:       #006300;
+    --queda:      #d03b3b;
+    --serie-1:    #2a78d6; /* Petrobras */
+    --serie-2:    #eb6834; /* Itaú */
+    --serie-3:    #1baf7a; /* Vale */
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --pagina:     #0d0d0d;
+      --superficie: #1a1a19;
+      --tinta:      #ffffff;
+      --tinta-2:    #c3c2b7;
+      --grade:      #2c2c2a;
+      --base:       #383835;
+      --borda:      rgba(255, 255, 255, 0.10);
+      --alta:       #0ca30c;
+      --queda:      #d03b3b;
+      --serie-1:    #3987e5;
+      --serie-2:    #d95926;
+      --serie-3:    #199e70;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--pagina);
+    color: var(--tinta);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.45;
+  }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 56px; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; font-weight: 650; }
+  h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+  .sub { margin: 0 0 24px; color: var(--tinta-2); font-size: .95rem; }
+
+  .painel {
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: 12px;
+    padding: 16px 20px;
+  }
+  section { margin-top: 20px; }
+
+  /* Cartões */
+  .cartoes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 0; }
+  .cartao h3 { margin: 0; font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .cartao .codigo { color: var(--tinta-2); font-weight: 400; font-size: .9rem; }
+  .cartao .valor { margin: 10px 0 2px; font-size: 1.8rem; font-weight: 600; }
+  .cartao .variacao { margin: 0; font-weight: 600; }
+  .cartao .variacao.alta  { color: var(--alta); }
+  .cartao .variacao.queda { color: var(--queda); }
+  .cartao .detalhe { margin: 8px 0 0; color: var(--tinta-2); font-size: .85rem; }
+  .traco { display: inline-block; width: 16px; height: 3px; border-radius: 2px; background: var(--cor); flex: none; }
+
+  /* Gráficos */
+  .topo-grafico { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 16px; }
+  .topo-grafico p { margin: 2px 0 0; color: var(--tinta-2); font-size: .85rem; }
+  .legenda { display: flex; gap: 16px; font-size: .85rem; color: var(--tinta-2); }
+  .legenda span { display: inline-flex; align-items: center; gap: 6px; }
+  .area-grafico { position: relative; height: 340px; margin-top: 12px; }
+
+  /* Tabelas */
+  .rolagem { overflow-x: auto; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--grade); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--tinta-2); font-weight: 500; font-size: .85rem; }
+  td { font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.alta { color: var(--alta); font-weight: 600; }
+  td.queda { color: var(--queda); font-weight: 600; }
+
+  details summary { cursor: pointer; font-weight: 600; }
+  details .rolagem { max-height: 360px; overflow-y: auto; }
+  details thead th { position: sticky; top: 0; background: var(--superficie); }
+
+  .aviso { padding: 12px 16px; border: 1px solid var(--queda); border-radius: 8px; color: var(--tinta); }
+  footer { margin-top: 24px; color: var(--tinta-2); font-size: .8rem; }
+
+  @media (max-width: 720px) {
+    .cartoes { grid-template-columns: 1fr; }
+    .area-grafico { height: 280px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Petrobras, Itaú e Vale em 2025</h1>
+  <p class="sub">Preço de fechamento diário (R$), sem dividendos, do primeiro ao último pregão do ano.</p>
+
+  <p id="aviso" class="aviso" hidden></p>
+
+  <div id="cartoes" class="cartoes"></div>
+
+  <section class="painel">
+    <div class="topo-grafico">
+      <div>
+        <h2>Cotação diária</h2>
+        <p>Preço de fechamento em R$.</p>
+      </div>
+      <div class="legenda" data-legenda></div>
+    </div>
+    <div class="area-grafico">
+      <canvas id="grafico-cotacao" role="img" aria-label="Gráfico de linhas com a cotação diária de PETR4, ITUB4 e VALE3 em 2025. Os valores estão na tabela abaixo."></canvas>
+    </div>
+  </section>
+
+  <section class="painel">
+    <div class="topo-grafico">
+      <div>
+        <h2>Performance comparada</h2>
+        <p>Todas começam em 100 no primeiro pregão. Acima de 100, valorizou; abaixo, caiu.</p>
+      </div>
+      <div class="legenda" data-legenda></div>
+    </div>
+    <div class="area-grafico">
+      <canvas id="grafico-performance" role="img" aria-label="Gráfico de linhas com a performance de PETR4, ITUB4 e VALE3 em 2025, todas partindo de 100. Os valores estão na tabela abaixo."></canvas>
+    </div>
+  </section>
+
+  <section class="painel">
+    <h2>Resumo do ano</h2>
+    <div class="rolagem">
+      <table id="tabela-resumo">
+        <thead>
+          <tr><th>Empresa</th><th>Preço inicial</th><th>Preço final</th><th>Variação</th><th>Máxima</th><th>Mínima</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="painel">
+    <details>
+      <summary>Ver todos os preços diários</summary>
+      <div class="rolagem">
+        <table id="tabela-diaria">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <footer>Fonte: Yahoo Finance. Preços de fechamento sem dividendos. Não é recomendação de investimento.</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="dados.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

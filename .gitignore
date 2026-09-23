@@ -1,0 +1,5 @@
+.env
+dados.db
+dados.chave
+__pycache__/
+.pytest_cache/

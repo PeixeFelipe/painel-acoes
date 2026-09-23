@@ -1,0 +1,3 @@
+# Só para quem for mexer no código e rodar os testes: python -m pip install -r requirements-dev.txt
+-r requirements.txt
+pytest==9.1.1
