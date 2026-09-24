@@ -10,6 +10,7 @@ Um app que roda no seu computador e mostra, com dados atualizados do Yahoo Finan
 - **Minha conta:** seus dados e a troca de senha.
 - **Administração** (só para administradores): criar usuários, redefinir senhas, promover a administrador, rebaixar a comum e excluir.
 - Os dados de cotação são renovados a cada 15 minutos. Se o Yahoo Finance não responder, aparece uma mensagem clara na tela.
+- **Análise do Dia (inteligência artificial):** um botão no canto inferior direito da página Ações abre uma janela em que a IA escreve, ao vivo, uma análise didática da sua carteira no período escolhido. Veja a seção "Análise do Dia" mais abaixo.
 
 ## Como rodar
 
@@ -90,6 +91,8 @@ Proteções: você não pode excluir a si mesmo e o app nunca deixa de ter pelo 
 | `iniciar.bat` | Liga o app com dois cliques. |
 | `servidor.py` | O "cérebro": login, usuários, carteira. |
 | `cotacoes.py` | Busca as cotações no Yahoo Finance. |
+| `analise.py` | Prepara os números da carteira e conversa com a IA (Análise do Dia). |
+| `instrucoes_analista.md` | As instruções da IA. Pode ser editado à vontade. |
 | `static/` | As telas (HTML, CSS e JavaScript). |
 | `.env` | Usuário e senha do primeiro administrador (secreto). |
 | `dados.db` | Onde ficam usuários, senhas (embaralhadas) e carteiras. Criado sozinho. Faça cópia dele para ter backup. |
@@ -102,6 +105,50 @@ Proteções: você não pode excluir a si mesmo e o app nunca deixa de ter pelo 
 - Preços de fechamento, sem dividendos. Fonte: Yahoo Finance. Pode haver diferença de centavos em relação à sua corretora.
 - Este app **não é recomendação de investimento**.
 - No seu computador ele funciona em `localhost`. Na internet, ele está publicado no Railway (veja a seção abaixo).
+
+## Análise do Dia (inteligência artificial)
+
+**O que faz:** na página **Ações**, o botão **Análise do Dia** (canto inferior direito, sempre visível) abre uma janela onde o texto aparece sendo escrito ao vivo. Ela analisa a carteira de quem está logado, no período escolhido nos botões (1 mês, 3 meses, 6 meses, no ano, 1 ano ou máximo). A janela mostra o período analisado, a hora em que a análise foi gerada e o botão Fechar.
+
+**Como funciona por dentro (sem mistério):**
+1. O próprio app calcula os números de cada ação: preço atual, variação no período, mínima e máxima com datas, distância da máxima, variação em 5 pregões, tendência (média de 20 dias contra 50) e volatilidade (o quanto o preço oscila).
+2. Só esse resumo de números é enviado à IA (modelo **Claude Haiku 4.5**, o mais barato da Anthropic). Ela não vê gráficos, não busca notícias e é instruída a não inventar nada.
+3. A análise fica guardada por 15 minutos: clicar de novo com a mesma carteira e o mesmo período reaproveita o texto e não gasta crédito.
+4. Cada pessoa pode gerar até **10 análises novas por hora**.
+
+**Privacidade:** para gerar a análise, o nome do usuário, os códigos das ações e os números calculados são enviados à Anthropic. A janela avisa isso.
+
+**Custo:** cerca de **US$ 0,004 por análise** (menos de meio centavo de dólar; algo como R$ 0,02 a R$ 0,03). Com US$ 5 de crédito dá para gerar bem mais de 800 análises. Os preços mudam: confira em platform.claude.com.
+
+### Como configurar a chave (uma vez só)
+
+A chave é uma senha do app junto à Anthropic. **Ela nunca vai para o código nem para o GitHub.**
+
+1. **Conta e crédito:** crie a conta em https://platform.claude.com, vá em **Settings → Billing**, compre um crédito pequeno (US$ 5) e deixe a recarga automática **desligada**. Em **Settings → Limits** você pode definir um teto de gasto mensal.
+2. **Criar a chave:** em **API keys → Create key**, dê o nome `painel-acoes` e copie a chave (começa com `sk-ant-`). Ela só aparece uma vez.
+3. **No seu computador:** abra o arquivo `.env` com o Bloco de Notas e acrescente uma linha (sem espaços e sem aspas):
+   ```
+   ANTHROPIC_API_KEY=sk-ant-...sua chave aqui...
+   ```
+   Salve e reinicie o app (feche a janela preta e abra `iniciar.bat` de novo).
+4. **No Railway (site na internet):** railway.com → seu projeto → serviço `painel-acoes` → aba **Variables** → **New Variable** → nome `ANTHROPIC_API_KEY`, valor a chave → **Add**. O Railway reinicia o app sozinho.
+
+### Como ajustar o que a IA escreve
+
+As instruções da IA estão no arquivo **`instrucoes_analista.md`**. Você pode editá-lo com o Bloco de Notas (mudando o tom, o tamanho, as regras). Para valer no site da internet, é preciso enviar o arquivo ao GitHub. Não mexa nos outros arquivos para isso.
+
+Para trocar o modelo de IA (por exemplo, se o Haiku 4.5 for aposentado), defina a variável `MODELO_IA` (no `.env` ou no Railway). Sem ela, o app usa `claude-haiku-4-5-20251001`.
+
+### Problemas comuns da análise
+
+| O que aparece na janela | O que fazer |
+|---|---|
+| "A Análise do Dia ainda não foi ativada: falta a chave" | Falta cadastrar a `ANTHROPIC_API_KEY` (passo 3 ou 4 acima). |
+| "A chave de acesso da IA está errada ou foi desativada" | Confira se copiou a chave inteira, sem espaços. Se preciso, crie outra chave no console e troque. |
+| "O crédito da conta da IA acabou" | Adicione crédito em platform.claude.com → Settings → Billing. |
+| "O modelo de IA configurado não está mais disponível" | Defina `MODELO_IA` com outro modelo (veja a lista de modelos em platform.claude.com). |
+| "Pedidos demais" / "fora do ar" | Espere alguns minutos e tente de novo. |
+| "Você já gerou 10 análises novas na última hora" | Espere um pouco; repetir a mesma análise não conta. |
 
 ## Publicado na internet
 

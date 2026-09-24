@@ -2,6 +2,7 @@
 
 Para ligar o app:  python servidor.py   (ou dê dois cliques em iniciar.bat)
 """
+import json
 import os
 import re
 import secrets
@@ -13,10 +14,11 @@ from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, g, jsonify, request, send_from_directory, session
+from flask import Flask, Response, g, jsonify, request, send_from_directory, session, stream_with_context
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import analise
 import cotacoes
 
 PASTA = Path(__file__).resolve().parent
@@ -421,6 +423,32 @@ def criar_app(caminho_banco=None, admin_inicial=None):
     def ver_cotacoes():
         itens, erros = cotacoes.obter_varias(codigos_da_carteira())
         return jsonify({"itens": itens, "erros": erros})
+
+    # ---------- Análise do Dia (IA) ----------
+    @app.post("/api/analise")
+    def analise_do_dia():
+        periodo_id = corpo().get("periodo")
+        if periodo_id not in analise.PERIODOS:
+            raise ErroDeUso("Período inválido. Escolha um dos botões de período da página Ações.")
+        eu_ = usuario_logado()
+        # Tudo que depende do banco é lido antes de começar a "digitar" a resposta.
+        codigos = codigos_da_carteira()
+        itens, erros = cotacoes.obter_varias(codigos)
+        usuario_id, nome, eh_admin = eu_["id"], eu_["nome"], bool(eu_["admin"])
+
+        def eventos():
+            if not codigos:
+                fluxo = iter([{"tipo": "erro", "mensagem": "Sua carteira está vazia. Adicione ações na página \"Minha carteira\" para receber a análise."}])
+            else:
+                fluxo = analise.gerar(usuario_id, nome, eh_admin, periodo_id, itens, [e["codigo"] for e in erros])
+            for evento in fluxo:
+                yield json.dumps(evento, ensure_ascii=False) + "\n"
+
+        return Response(
+            stream_with_context(eventos()),
+            mimetype="application/x-ndjson",
+            headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},  # não deixar o proxy segurar o texto
+        )
 
     return app
 

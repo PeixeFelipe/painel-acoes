@@ -298,9 +298,144 @@ function criarGrafico(canvas, series, datas, { valores, formatarEixo, formatarVa
   });
 }
 
+// ---------- Análise do Dia (botão flutuante + janela) ----------
+// Transforma o Markdown simples da IA (negrito, itálico, listas) em elementos, sem usar innerHTML.
+function markdownSimples(texto) {
+  const caixa = document.createDocumentFragment();
+  const inline = (pai, linha) => {
+    for (const parte of linha.split(/(\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_)/g)) {
+      if (!parte) continue;
+      if (parte.startsWith("**") && parte.endsWith("**") && parte.length > 4) pai.append(el("strong", "", parte.slice(2, -2)));
+      else if (/^[*_][^*_]+[*_]$/.test(parte)) pai.append(el("em", "", parte.slice(1, -1)));
+      else pai.append(parte);
+    }
+  };
+  let lista = null;
+  for (const bruta of texto.split("\n")) {
+    const linha = bruta.trim();
+    if (!linha) { lista = null; continue; }
+    const item = linha.match(/^[-*•]\s+(.*)$/);
+    if (item) {
+      if (!lista) { lista = el("ul"); caixa.append(lista); }
+      const li = el("li");
+      inline(li, item[1]);
+      lista.append(li);
+      continue;
+    }
+    lista = null;
+    const titulo = linha.match(/^#{1,6}\s+(.*)$/);
+    const p = el(titulo ? "h3" : "p");
+    inline(p, titulo ? titulo[1] : linha);
+    caixa.append(p);
+  }
+  return caixa;
+}
+
+function criarAnalise(apiFluxo, periodoAtual) {
+  const botao = el("button", "botao-analise", "Análise do Dia");
+  botao.type = "button";
+  botao.setAttribute("aria-haspopup", "dialog");
+
+  const dialogo = el("dialog", "dialogo-analise");
+  dialogo.setAttribute("aria-labelledby", "titulo-analise");
+  const topo = el("div", "topo-analise");
+  const titulo = el("h2", "", "Análise do Dia");
+  titulo.id = "titulo-analise";
+  const fechar = el("button", "botao pequeno", "Fechar");
+  fechar.type = "button";
+  topo.append(titulo, fechar);
+  const meta = el("div", "meta-analise");
+  const linhaPeriodo = el("p");
+  const linhaHora = el("p");
+  meta.append(linhaPeriodo, linhaHora);
+  const texto = el("div", "texto-analise");
+  const estado = el("p", "sub estado-analise");
+  const aviso = el("p", "erro");
+  aviso.hidden = true;
+  const rodape = el("p", "rodape-analise", "Texto gerado por inteligência artificial (Anthropic) a partir dos preços do Yahoo Finance. Para gerar a análise, seu nome e os números da sua carteira são enviados à Anthropic.");
+  const corpo = el("div", "corpo-analise");
+  corpo.append(meta, aviso, texto, estado);
+  dialogo.append(topo, corpo, rodape);
+  document.body.append(botao, dialogo);
+
+  let controle = null;   // permite cancelar a geração ao fechar a janela
+  let recebido = "";     // tudo o que a IA já mandou
+  let mostrado = 0;      // quantos caracteres já "digitados" na tela
+  let terminou = false;
+  let relogio = null;
+
+  function pintar() {
+    texto.replaceChildren(markdownSimples(recebido.slice(0, mostrado)));
+    corpo.scrollTop = corpo.scrollHeight;
+  }
+  function digitar() {
+    if (mostrado < recebido.length) {
+      // Anda mais rápido quando há muito texto na fila, para nunca ficar muito atrás da IA.
+      mostrado = Math.min(recebido.length, mostrado + Math.max(1, Math.ceil((recebido.length - mostrado) / 50)));
+      pintar();
+    } else if (terminou) {
+      clearInterval(relogio);
+      relogio = null;
+      estado.textContent = "";
+      texto.removeAttribute("aria-busy");
+    }
+  }
+  function parar() {
+    if (controle) controle.abort();
+    controle = null;
+    clearInterval(relogio);
+    relogio = null;
+  }
+  function falhar(mensagem) {
+    aviso.textContent = mensagem;
+    aviso.hidden = false;
+    estado.textContent = "";
+    terminou = true;
+  }
+
+  async function abrir() {
+    parar();
+    recebido = ""; mostrado = 0; terminou = false;
+    texto.replaceChildren();
+    texto.setAttribute("aria-busy", "true");
+    aviso.hidden = true;
+    linhaPeriodo.textContent = "";
+    linhaHora.textContent = "";
+    estado.textContent = "Lendo os números da sua carteira e escrevendo a análise…";
+    if (!dialogo.open) dialogo.showModal();
+    controle = new AbortController();
+    relogio = setInterval(digitar, 25);
+    try {
+      await apiFluxo("/api/analise", { periodo: periodoAtual().id }, (ev) => {
+        if (ev.tipo === "inicio") {
+          linhaPeriodo.textContent = `Período analisado: ${ev.periodo} (${dataBR(ev.de)} a ${dataBR(ev.ate)})`;
+          linhaHora.textContent = `Análise gerada às ${horaBR(ev.gerada_em)}` + (ev.em_cache ? " (reaproveitada: sua carteira e o período não mudaram nos últimos 15 minutos)" : "");
+        } else if (ev.tipo === "texto") {
+          recebido += ev.t;
+        } else if (ev.tipo === "erro") {
+          falhar(ev.mensagem);
+        } else if (ev.tipo === "fim") {
+          terminou = true;
+        }
+      }, controle.signal);
+      if (!terminou) terminou = true; // a conexão acabou sem "fim": mostra o que chegou
+    } catch (erro) {
+      if (erro.name === "AbortError") return;
+      falhar(erro.message);
+    }
+  }
+
+  botao.addEventListener("click", abrir);
+  fechar.addEventListener("click", () => dialogo.close());
+  dialogo.addEventListener("close", parar); // também vale para a tecla Esc
+  dialogo.addEventListener("click", (e) => { if (e.target === dialogo) dialogo.close(); }); // clicar fora fecha
+
+  return () => { parar(); botao.remove(); dialogo.remove(); };
+}
+
 // ---------- Página "Ações" ----------
 // Devolve uma função de limpeza, chamada quando a pessoa troca de página.
-function paginaAcoes(raiz, api) {
+function paginaAcoes(raiz, api, apiFluxo) {
   let dados = null;            // resposta do servidor
   let periodo = PERIODOS.find((p) => p.id === "1a");
   let graficos = [];
@@ -328,6 +463,7 @@ function paginaAcoes(raiz, api) {
   const rodape = el("p", "rodape-dados");
   raiz.append(cab, avisos, corpo, rodape);
   corpo.append(el("p", "sub", "Buscando as cotações no Yahoo Finance…"));
+  const removerAnalise = criarAnalise(apiFluxo, () => periodo);
 
   function aviso(texto, classe = "aviso") {
     avisos.append(el("p", classe, texto));
@@ -465,6 +601,7 @@ function paginaAcoes(raiz, api) {
 
   return () => {
     cancelado = true;
+    removerAnalise();
     clearInterval(relogio);
     modoEscuro.removeEventListener("change", trocouModo);
     limparGraficos();

@@ -20,6 +20,7 @@ Para testar sem mexer nos dados reais, defina antes de ligar: `CAMINHO_BANCO` (b
 - SQLite (`dados.db`) via módulo `sqlite3`, sem ORM.
 - Front-end sem build: HTML/CSS/JS puros em `static/`; gráficos com Chart.js 4 pelo CDN.
 - yfinance para o Yahoo Finance.
+- SDK `anthropic` (versão travada) para a Análise do Dia. Modelo padrão: `claude-haiku-4-5-20251001` (o mais barato; ver "Análise do Dia").
 
 ## Estrutura
 
@@ -27,6 +28,8 @@ Para testar sem mexer nos dados reais, defina antes de ligar: `CAMINHO_BANCO` (b
 |---|---|
 | `servidor.py` | App Flask: login, sessão, CSRF, rotas `/api/*`, admin, carteira. Ponto de entrada (`criar_app()`). |
 | `cotacoes.py` | Busca no Yahoo, cache de 15 min, validação de códigos, mensagens de erro amigáveis. |
+| `analise.py` | Análise do Dia: resumo numérico (`preparar_resumo`), cache 15 min, limite por hora, chamada à IA em streaming, erros amigáveis. |
+| `instrucoes_analista.md` | Instruções de sistema da IA, **texto do dono do projeto: não reescrever/“melhorar” sem pedido**. Lido a cada geração. |
 | `static/index.html` | Página única (login + app + diálogo de senha temporária). |
 | `static/app.js` | Chamadas à API, login, roteamento por `#/pagina`, páginas Carteira, Conta e Administração. |
 | `static/acoes.js` | Formatação pt-BR, página "Ações" (cards, gráficos, períodos, tabelas, CSV). Carrega antes do `app.js`. |
@@ -46,6 +49,20 @@ Para testar sem mexer nos dados reais, defina antes de ligar: `CAMINHO_BANCO` (b
 - Primeiro admin é criado no primeiro start, se a tabela `usuarios` estiver vazia, com os dados do `.env`.
 - Carteira nova começa com PETR4, ITUB4, VALE3; máximo de 8 ações (o gráfico tem 8 cores).
 - Cotações: cache de 15 min compartilhado; se o Yahoo falhar e houver cache antigo, serve o antigo marcando `desatualizado`.
+
+## Análise do Dia (IA)
+
+- Rota `POST /api/analise {periodo}` devolve NDJSON (uma linha JSON por evento): `inicio` (período, datas, `gerada_em`, `em_cache`), `texto` (pedaços),
+  `fim` ou `erro` (mensagem já amigável). O front (`criarAnalise` em `acoes.js`, `apiFluxo` em `app.js`) faz o efeito de digitação.
+- A IA **só recebe números calculados no servidor** (`analise.preparar_resumo`), nunca gráficos. Nome/códigos vão sem `<`, `>` e quebras de linha
+  dentro do bloco `<dados>` (defesa contra injeção de instruções). `data_de_corte` deve continuar igual à do front (`dataDeCorte`).
+- Cache em memória por (nome, período, resumo) por 15 min; limite de 10 análises NOVAS por usuário/hora (`LIMITE_POR_HORA`). Reinício zera ambos.
+- Erros: `mensagem_de_erro` traduz exceções do SDK; **nunca** repassar texto da exceção ao usuário nem gravar a chave em log.
+- Variáveis: `ANTHROPIC_API_KEY` (sem ela, o app funciona e a análise mostra aviso), `MODELO_IA` (opcional).
+- Modelo: Haiku 4.5 é o mais barato (US$ 1 / 5 por milhão de tokens, entrada/saída), custo ≈ US$ 0,004 por análise. Aposentadoria prevista
+  “não antes de 15/10/2026” (aviso prévio de 60 dias). Se aposentar, trocar `MODELO_IA` (próximo mais barato: `claude-sonnet-5`, 2x o preço) e conferir
+  https://platform.claude.com/docs/en/about-claude/models/overview.
+- Testes com IA de mentira em `testes/test_analise.py`; nunca chamar a API real nos testes automáticos.
 
 ## Segurança (convenções)
 
@@ -88,6 +105,8 @@ Para testar sem mexer nos dados reais, defina antes de ligar: `CAMINHO_BANCO` (b
   | `CAMINHO_BANCO=/data/dados.db` | Onde fica o banco (no volume) |
   | `COOKIE_SEGURO=1` | Cookie só trafega por https |
   | `CONFIAR_PROXY=1` | Usa o IP real (cabeçalho do proxy do Railway) no bloqueio de tentativas |
+  | `ANTHROPIC_API_KEY` | Chave da API da Anthropic (Análise do Dia). **Segredo: nunca no código, no GitHub nem no chat** |
+  | `MODELO_IA` | (opcional) troca o modelo de IA sem mexer no código |
 
 - Modo nuvem = existe a variável `PORT` (o Railway define): o app escuta em `0.0.0.0` e não abre o navegador. Sem `PORT`: só `127.0.0.1`.
 - Comandos úteis (CLI já ligada ao projeto): `railway status`, `railway logs -d --lines 50`, `railway deployment list`,

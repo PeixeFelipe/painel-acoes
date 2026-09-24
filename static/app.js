@@ -22,20 +22,57 @@ async function api(metodo, url, corpo) {
   }
   let dados = {};
   try { dados = await resposta.json(); } catch { /* resposta sem conteúdo */ }
-  if (!resposta.ok) {
-    if (dados.codigo === "nao_logado" && eu) {
-      eu = null;
-      mostrarLogin("Sua sessão terminou. Entre de novo.");
-    } else if (dados.codigo === "csrf") {
-      try { csrf = (await (await fetch("/api/eu", { credentials: "same-origin" })).json()).csrf; } catch { /* segue */ }
-    } else if (dados.codigo === "trocar_senha" && eu && !eu.trocar_senha) {
-      eu.trocar_senha = true;
-      ir();
-    }
-    throw new Error(dados.erro || "Algo deu errado. Tente de novo.");
-  }
+  if (!resposta.ok) await reagirAoErro(resposta, dados);
   if (dados.csrf) csrf = dados.csrf;
   return dados;
+}
+
+// Erros de sessão, segurança e senha temporária são tratados igual em todas as chamadas.
+async function reagirAoErro(resposta, dados) {
+  if (dados.codigo === "nao_logado" && eu) {
+    eu = null;
+    mostrarLogin("Sua sessão terminou. Entre de novo.");
+  } else if (dados.codigo === "csrf") {
+    try { csrf = (await (await fetch("/api/eu", { credentials: "same-origin" })).json()).csrf; } catch { /* segue */ }
+  } else if (dados.codigo === "trocar_senha" && eu && !eu.trocar_senha) {
+    eu.trocar_senha = true;
+    ir();
+  }
+  throw new Error(dados.erro || "Algo deu errado. Tente de novo.");
+}
+
+// Como api(), mas a resposta chega aos poucos (uma linha JSON por evento): usado na Análise do Dia.
+async function apiFluxo(url, corpo, aoEvento, sinal) {
+  let resposta;
+  try {
+    resposta = await fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      signal: sinal,
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+      body: JSON.stringify(corpo),
+    });
+  } catch (erro) {
+    if (erro.name === "AbortError") throw erro;
+    throw new Error("Não consegui falar com o servidor. Confira sua internet e tente de novo.");
+  }
+  if (!resposta.ok) {
+    let dados = {};
+    try { dados = await resposta.json(); } catch { /* sem conteúdo */ }
+    await reagirAoErro(resposta, dados);
+  }
+  const leitor = resposta.body.getReader();
+  const decodificador = new TextDecoder();
+  let resto = "";
+  for (;;) {
+    const { done, value } = await leitor.read();
+    if (done) break;
+    resto += decodificador.decode(value, { stream: true });
+    const linhas = resto.split("\n");
+    resto = linhas.pop();
+    for (const linha of linhas) if (linha.trim()) aoEvento(JSON.parse(linha));
+  }
+  if (resto.trim()) aoEvento(JSON.parse(resto));
 }
 
 const mensagem = (caixa, texto, tipo = "erro") => {
@@ -100,7 +137,7 @@ $("botao-sair").addEventListener("click", async () => {
 
 // ---------- Roteamento pelas páginas do menu ----------
 const PAGINAS = {
-  acoes: { titulo: "Ações", desenhar: (raiz) => paginaAcoes(raiz, api) },
+  acoes: { titulo: "Ações", desenhar: (raiz) => paginaAcoes(raiz, api, apiFluxo) },
   carteira: { titulo: "Minha carteira", desenhar: paginaCarteira },
   conta: { titulo: "Minha conta", desenhar: paginaConta },
   admin: { titulo: "Administração", desenhar: paginaAdmin, soAdmin: true },
