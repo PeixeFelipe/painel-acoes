@@ -6,7 +6,7 @@ Dono do projeto: iniciante em programação. Explicar tudo em linguagem simples,
 ## Comandos
 
 ```
-python -m pip install -r requirements.txt   # instala as bibliotecas
+python -m pip install -r requirements-dev.txt   # instala as bibliotecas (+ pytest); iniciar.bat usa só requirements.txt
 python servidor.py                          # liga o app em http://localhost:5000 (ou dois cliques em iniciar.bat)
 python -m pytest testes -q                  # testes automáticos (usam banco temporário e Yahoo falso; ~20 s)
 ```
@@ -16,7 +16,7 @@ Para testar sem mexer nos dados reais, defina antes de ligar: `CAMINHO_BANCO` (b
 
 ## Stack
 
-- Python 3.12 + Flask, servido com waitress (só em 127.0.0.1, nada exposto à rede).
+- Python 3.12 + Flask, servido com waitress (no seu computador só em 127.0.0.1; na nuvem, 0.0.0.0 atrás do proxy do Railway).
 - SQLite (`dados.db`) via módulo `sqlite3`, sem ORM.
 - Front-end sem build: HTML/CSS/JS puros em `static/`; gráficos com Chart.js 4 pelo CDN.
 - yfinance para o Yahoo Finance.
@@ -71,7 +71,31 @@ Para testar sem mexer nos dados reais, defina antes de ligar: `CAMINHO_BANCO` (b
 2. Ligar o app (com banco temporário) e conferir no navegador: login, admin, senha temporária, carteira, gráficos, celular.
 3. Atualizar `README.md` se algo visível ao usuário mudou.
 
+## Publicação (Railway + GitHub)
+
+- Código: https://github.com/PeixeFelipe/painel-acoes (público). Branch `main`. **Publicou no GitHub = o Railway publica sozinho.**
+- Site: https://painel-acoes-production-02b6.up.railway.app (projeto `trustworthy-endurance`, serviço `painel-acoes`, ambiente `production`).
+- Build automático (Railpack, Python 3.12 via `.python-version`, `requirements.txt` com versões travadas). Início: `python servidor.py`
+  (`railway.json`); o Railway visita `/saude` para saber se o app está de pé.
+- **Disco permanente:** Volume de 500 MB montado em `/data`; o banco fica em `/data/dados.db`. Sem o volume, cada publicação apaga usuários e carteiras.
+  Um serviço só pode ter um volume.
+- **Segredos só nas Variables do Railway, nunca em arquivo/código:**
+
+  | Variável | Para quê |
+  |---|---|
+  | `ADMIN_USUARIO`, `ADMIN_SENHA`, `ADMIN_NOME`, `ADMIN_EMAIL` | Primeiro admin (só vale com o banco vazio) |
+  | `CHAVE_SECRETA` | Assina o cookie de login. Trocar = todo mundo é deslogado |
+  | `CAMINHO_BANCO=/data/dados.db` | Onde fica o banco (no volume) |
+  | `COOKIE_SEGURO=1` | Cookie só trafega por https |
+  | `CONFIAR_PROXY=1` | Usa o IP real (cabeçalho do proxy do Railway) no bloqueio de tentativas |
+
+- Modo nuvem = existe a variável `PORT` (o Railway define): o app escuta em `0.0.0.0` e não abre o navegador. Sem `PORT`: só `127.0.0.1`.
+- Comandos úteis (CLI já ligada ao projeto): `railway status`, `railway logs -d --lines 50`, `railway deployment list`,
+  `railway variable list` (**mostra segredos: nunca colar a saída em lugar público**), `railway domain`.
+- Plano: Trial (crédito e prazo limitados; depois disso o site pode pausar até escolher plano pago). Conferir o saldo no painel.
+- Aviso do Railway: `railway.json` está "deprecated" (funciona até 2026-12-01); migrar depois com `railway config migrate`.
+- O rate limit de login é em memória (zera a cada publicação/reinício). Aceitável para poucos usuários.
+
 ## Fora de escopo por enquanto
 
-Publicação na internet (HTTPS, domínio, servidor). Ao chegar lá: trocar o rate limit em memória por algo persistente,
-ativar `SESSION_COOKIE_SECURE`, e rever CSP/hospedagem.
+Domínio próprio, e-mail de recuperação de senha, mais de uma réplica do servidor (o banco SQLite exige uma só).

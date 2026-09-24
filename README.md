@@ -55,7 +55,7 @@ Proteções: você não pode excluir a si mesmo e o app nunca deixa de ter pelo 
 
 ## Como testar
 
-**Teste automático** (para quem mexer no código): abra o terminal na pasta e rode `python -m pytest testes -q`. Deve aparecer "passed" em verde.
+**Teste automático** (para quem mexer no código): abra o terminal na pasta, rode uma vez `python -m pip install -r requirements-dev.txt` e depois `python -m pytest testes -q`. Deve aparecer "passed" em verde.
 
 **Roteiro para conferir com os próprios olhos:**
 
@@ -101,4 +101,25 @@ Proteções: você não pode excluir a si mesmo e o app nunca deixa de ter pelo 
 
 - Preços de fechamento, sem dividendos. Fonte: Yahoo Finance. Pode haver diferença de centavos em relação à sua corretora.
 - Este app **não é recomendação de investimento**.
-- Por enquanto ele só funciona no seu computador (endereço `localhost`). Publicar na internet é uma próxima etapa.
+- No seu computador ele funciona em `localhost`. Na internet, ele está publicado no Railway (veja a seção abaixo).
+
+## Publicado na internet
+
+- **Site:** https://painel-acoes-production-02b6.up.railway.app
+- **Código:** https://github.com/PeixeFelipe/painel-acoes
+- **Como atualiza:** toda vez que uma nova versão do código é enviada ao GitHub (branch `main`), o Railway a publica sozinho, em cerca de 1 a 2 minutos.
+- **Seus dados não somem:** usuários, senhas (embaralhadas) e carteiras ficam num disco permanente do Railway (`/data`), que continua igual a cada nova versão e a cada reinício.
+- **Segredos:** a senha do administrador e a chave de segurança do login ficam nas configurações do Railway (serviço → aba **Variables**), nunca no código nem no GitHub.
+  - O usuário e a senha do primeiro administrador são lidos de `ADMIN_USUARIO` e `ADMIN_SENHA` só na primeira vez (com o banco vazio).
+  - Para ver a senha: no painel do Railway, abra o serviço `painel-acoes` → **Variables** → clique no ícone de olho ao lado de `ADMIN_SENHA`.
+  - Depois de entrar, troque a senha em **Minha conta**. Aí a variável deixa de valer e pode ser apagada sem problema.
+- **Teste gratuito (Trial):** o Railway dá um crédito limitado por tempo limitado. Acompanhe o saldo no painel dele; quando acabar, o site pode ser pausado até você escolher um plano.
+
+### Problemas comuns na internet
+
+| O que aconteceu | O que fazer |
+|---|---|
+| O site não abre | Veja o estado em railway.com → seu projeto → serviço. Se estiver "Crashed", abra **Deployments → View logs** e leia a última mensagem. |
+| "Crashed" com mensagem sobre o primeiro administrador | Faltam `ADMIN_USUARIO` e `ADMIN_SENHA` em **Variables**. |
+| Os usuários sumiram depois de uma atualização | Confira se o serviço tem o disco (Volume) em `/data` e se `CAMINHO_BANCO` vale `/data/dados.db`. |
+| Todo mundo foi deslogado | Normal se a `CHAVE_SECRETA` foi trocada. É só entrar de novo. |

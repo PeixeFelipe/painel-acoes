@@ -148,8 +148,9 @@ def criar_app(caminho_banco=None, admin_inicial=None):
                 conexao.close()
                 raise SystemExit(
                     "\nNão existe nenhum usuário ainda e não consegui criar o primeiro administrador.\n"
-                    "Abra o arquivo .env (na pasta do app) e confira ADMIN_USUARIO (3 a 30 letras/números)\n"
-                    f"e ADMIN_SENHA (mínimo {TAMANHO_MIN_SENHA} caracteres). Depois ligue o app de novo.\n"
+                    "Confira ADMIN_USUARIO (3 a 30 letras/números) e ADMIN_SENHA "
+                    f"(mínimo {TAMANHO_MIN_SENHA} caracteres). No seu computador, eles ficam no arquivo .env;\n"
+                    "no Railway, na aba Variables do serviço. Depois ligue o app de novo.\n"
                 )
             cursor = conexao.execute(
                 "INSERT INTO usuarios (nome, usuario, email, senha_hash, admin, trocar_senha) VALUES (?,?,?,?,1,0)",

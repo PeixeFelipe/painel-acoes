@@ -145,7 +145,7 @@ def test_sem_dados_do_admin_o_app_explica(tmp_path, monkeypatch):
     monkeypatch.setattr("servidor.load_dotenv", lambda *a, **k: None)
     with pytest.raises(SystemExit) as erro:
         criar_app(tmp_path / "y.db")
-    assert ".env" in str(erro.value)
+    assert ".env" in str(erro.value) and "Railway" in str(erro.value)
 
 
 # ---------- Administração ----------
